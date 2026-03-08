@@ -2,15 +2,16 @@
 <html>
 <head>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Pollito & Pengui</title>
+<title>Pollito & Pengui Adventure</title>
 
 <style>
-body{margin:0;overflow:hidden;background:#87CEEB;}
+body{margin:0;overflow:hidden;background:#87CEEB;font-family:sans-serif;}
 canvas{display:block;}
 </style>
 </head>
 
 <body>
+
 <canvas id="game"></canvas>
 
 <script>
@@ -23,12 +24,17 @@ canvas.height=window.innerHeight;
 
 let gravity=0.6;
 let cameraX=0;
-let score=0;
-let step=0;
-let gameState="title";
-let gameWon=false;
 
-let worldWidth=2200;
+let gameState="title";
+
+let worldWidth=4500;
+let ground=canvas.height-80;
+
+let score=0;
+let coins=0;
+
+let moveLeft=false;
+let moveRight=false;
 
 let audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 
@@ -45,31 +51,499 @@ osc.type="square";
 
 osc.start();
 
-gain.gain.setValueAtTime(0.2,audioCtx.currentTime);
+gain.gain.setValueAtTime(0.15,audioCtx.currentTime);
 gain.gain.exponentialRampToValueAtTime(0.001,audioCtx.currentTime+dur);
 
 osc.stop(audioCtx.currentTime+dur);
 
 }
 
-let clouds=[
-{x:100,y:100},
-{x:400,y:140},
-{x:700,y:90},
-{x:1100,y:130}
-];
+/* ---------- MUSIC ---------- */
+
+let melody=[659,659,0,659,0,523,659,0,784,0,392,0,523,0,392,0,330,0,440,0];
+let noteIndex=0;
+
+function playMusic(){
+
+setInterval(()=>{
+
+let note=melody[noteIndex];
+
+if(note!==0) playTone(note,0.15);
+
+noteIndex++;
+if(noteIndex>=melody.length) noteIndex=0;
+
+},180);
+
+}
+
+/* ---------- PLAYER ---------- */
 
 let player={
 x:200,
-y:300,
+y:200,
 vx:0,
 vy:0,
-facing:1
+size:1
 };
 
-let ground=canvas.height-80;
-let platformHeight=canvas.height/2;
+/* ---------- WORLD OBJECTS ---------- */
 
+let hearts=[];
+let enemies=[];
+let mushrooms=[];
+let blocks=[];
+let platforms=[];
+
+/* ---------- RESET ---------- */
+
+function resetGame(){
+
+score=0;
+coins=0;
+
+player.x=200;
+player.y=200;
+player.size=1;
+
+cameraX=0;
+
+hearts=[];
+enemies=[];
+mushrooms=[];
+blocks=[];
+platforms=[];
+
+/* hearts */
+
+for(let i=0;i<20;i++){
+
+hearts.push({
+x:400+(i*200),
+y:ground-120,
+collected:false
+});
+
+}
+
+/* platforms */
+
+for(let i=0;i<12;i++){
+
+platforms.push({
+x:500+(i*300),
+y:ground-150+(Math.sin(i)*50)
+});
+
+}
+
+/* coin blocks */
+
+for(let i=0;i<10;i++){
+
+blocks.push({
+x:600+(i*350),
+y:ground-200,
+used:false
+});
+
+}
+
+/* enemies */
+
+for(let i=0;i<10;i++){
+
+enemies.push({
+x:900+(i*350),
+y:ground-40,
+dir:1
+});
+
+}
+
+}
+
+resetGame();
+
+/* ---------- DRAW ---------- */
+
+function drawChick(x,y){
+
+ctx.fillStyle="yellow";
+ctx.beginPath();
+ctx.arc(x,y,20*player.size,0,Math.PI*2);
+ctx.fill();
+
+ctx.fillStyle="black";
+ctx.beginPath();
+ctx.arc(x+5,y-5,3,0,Math.PI*2);
+ctx.fill();
+
+ctx.fillStyle="orange";
+ctx.beginPath();
+ctx.moveTo(x+20,y);
+ctx.lineTo(x+32,y+4);
+ctx.lineTo(x+20,y+8);
+ctx.fill();
+
+}
+
+function drawPenguin(x,y){
+
+ctx.fillStyle="black";
+ctx.beginPath();
+ctx.arc(x,y,22,0,Math.PI*2);
+ctx.fill();
+
+ctx.fillStyle="white";
+ctx.beginPath();
+ctx.arc(x,y+4,14,0,Math.PI*2);
+ctx.fill();
+
+}
+
+function drawHeart(x,y){
+
+ctx.fillStyle="red";
+
+ctx.beginPath();
+ctx.moveTo(x,y);
+ctx.bezierCurveTo(x-10,y-10,x-20,y+10,x,y+20);
+ctx.bezierCurveTo(x+20,y+10,x+10,y-10,x,y);
+ctx.fill();
+
+}
+
+function drawEnemy(x,y){
+
+ctx.fillStyle="#663300";
+ctx.fillRect(x-15,y-20,30,20);
+
+}
+
+function drawCoin(x,y){
+
+ctx.fillStyle="gold";
+ctx.beginPath();
+ctx.arc(x,y,8,0,Math.PI*2);
+ctx.fill();
+
+}
+
+function drawBlock(x,y){
+
+ctx.fillStyle="#d68b2a";
+ctx.fillRect(x-20,y-20,40,40);
+
+}
+
+/* ---------- UPDATE ---------- */
+
+function update(){
+
+player.vy+=gravity;
+
+player.x+=player.vx;
+player.y+=player.vy;
+
+player.vx*=0.85;
+
+if(player.y>ground-20){
+
+player.y=ground-20;
+player.vy=0;
+
+}
+
+platforms.forEach(p=>{
+
+if(player.x>p.x-60 &&
+player.x<p.x+60 &&
+player.y>p.y-40 &&
+player.y<p.y &&
+player.vy>=0){
+
+player.y=p.y-40;
+player.vy=0;
+
+}
+
+});
+
+/* hearts */
+
+hearts.forEach(h=>{
+
+if(!h.collected){
+
+let dx=player.x-h.x;
+let dy=player.y-h.y;
+
+if(Math.sqrt(dx*dx+dy*dy)<30){
+
+h.collected=true;
+score++;
+
+playTone(900,0.2);
+
+}
+
+}
+
+});
+
+/* enemies */
+
+enemies.forEach(e=>{
+
+e.x+=e.dir*1.5;
+
+if(Math.random()<0.01) e.dir*=-1;
+
+let dx=player.x-e.x;
+let dy=player.y-e.y;
+
+if(Math.abs(dx)<20 && Math.abs(dy)<20){
+
+player.x-=dx*2;
+
+}
+
+});
+
+/* blocks */
+
+blocks.forEach(b=>{
+
+if(!b.used &&
+player.x>b.x-20 &&
+player.x<b.x+20 &&
+player.y<b.y &&
+player.y>b.y-60 &&
+player.vy<0){
+
+b.used=true;
+
+mushrooms.push({
+x:b.x,
+y:b.y-40,
+vx:2
+});
+
+playTone(700,0.2);
+
+}
+
+});
+
+/* mushrooms */
+
+mushrooms.forEach(m=>{
+
+m.x+=m.vx;
+
+let dx=player.x-m.x;
+let dy=player.y-m.y;
+
+if(Math.sqrt(dx*dx+dy*dy)<25){
+
+player.size=1.5;
+m.collected=true;
+
+playTone(400,0.3);
+
+}
+
+});
+
+mushrooms=mushrooms.filter(m=>!m.collected);
+
+/* camera */
+
+let target=player.x-canvas.width/2;
+
+if(target<0) target=0;
+if(target>worldWidth-canvas.width) target=worldWidth-canvas.width;
+
+cameraX+= (target-cameraX)*0.1;
+
+}
+
+/* ---------- DRAW ---------- */
+
+function draw(){
+
+ctx.clearRect(0,0,canvas.width,canvas.height);
+
+/* ground */
+
+ctx.fillStyle="#2f8f2f";
+ctx.fillRect(0,ground,canvas.width,80);
+
+/* platforms */
+
+ctx.fillStyle="#8B4513";
+
+platforms.forEach(p=>{
+ctx.fillRect(p.x-cameraX-60,p.y,120,20);
+});
+
+/* hearts */
+
+hearts.forEach(h=>{
+if(!h.collected)
+drawHeart(h.x-cameraX,h.y);
+});
+
+/* enemies */
+
+enemies.forEach(e=>{
+drawEnemy(e.x-cameraX,e.y);
+});
+
+/* mushrooms */
+
+mushrooms.forEach(m=>{
+ctx.fillStyle="red";
+ctx.fillRect(m.x-cameraX-10,m.y-10,20,20);
+});
+
+/* blocks */
+
+blocks.forEach(b=>{
+drawBlock(b.x-cameraX,b.y);
+});
+
+/* player */
+
+drawChick(player.x-cameraX,player.y);
+
+/* penguin + jeep ending */
+
+if(score>=20){
+
+let px=worldWidth-200;
+
+drawPenguin(px-cameraX,ground-40);
+
+if(Math.abs(player.x-px)<60){
+
+gameState="ending";
+
+}
+
+}
+
+ctx.fillStyle="white";
+ctx.fillText("Hearts "+score+"/20",20,30);
+
+}
+
+/* ---------- ENDING ---------- */
+
+function drawEnding(){
+
+ctx.fillStyle="#87CEEB";
+ctx.fillRect(0,0,canvas.width,canvas.height);
+
+ctx.fillStyle="orange";
+ctx.fillRect(canvas.width/2-100,canvas.height/2,200,60);
+
+ctx.fillStyle="yellow";
+ctx.beginPath();
+ctx.arc(canvas.width/2-40,canvas.height/2-20,20,0,Math.PI*2);
+ctx.fill();
+
+ctx.fillStyle="black";
+ctx.beginPath();
+ctx.arc(canvas.width/2+40,canvas.height/2-20,20,0,Math.PI*2);
+ctx.fill();
+
+ctx.fillStyle="white";
+ctx.textAlign="center";
+ctx.font="30px sans-serif";
+ctx.fillText("Pollito ❤️ Pengui Ride Away!",canvas.width/2,200);
+
+}
+
+/* ---------- LOOP ---------- */
+
+function loop(){
+
+if(gameState==="play"){
+update();
+draw();
+}
+
+if(gameState==="ending"){
+drawEnding();
+}
+
+if(gameState==="title"){
+
+ctx.fillStyle="#87CEEB";
+ctx.fillRect(0,0,canvas.width,canvas.height);
+
+ctx.fillStyle="white";
+ctx.textAlign="center";
+
+ctx.font="40px sans-serif";
+ctx.fillText("Pollito ❤️ Pengui",canvas.width/2,200);
+
+ctx.font="24px sans-serif";
+ctx.fillText("Collect 20 hearts!",canvas.width/2,260);
+
+ctx.fillText("Tap to Start",canvas.width/2,340);
+
+}
+
+requestAnimationFrame(loop);
+
+}
+
+loop();
+
+/* ---------- TOUCH ---------- */
+
+canvas.addEventListener("touchstart",e=>{
+
+if(gameState==="title"){
+
+gameState="play";
+playMusic();
+return;
+
+}
+
+let x=e.touches[0].clientX;
+let y=e.touches[0].clientY;
+
+if(y<canvas.height/2){
+
+player.vy=-12;
+
+}else{
+
+if(x<canvas.width/2) moveLeft=true;
+else moveRight=true;
+
+player.vx = x<canvas.width/2 ? -6 : 6;
+
+}
+
+});
+
+canvas.addEventListener("touchend",()=>{
+
+moveLeft=false;
+moveRight=false;
+
+});
+
+</script>
+</body>
+</html>
 let platforms=[
 {x:400,y:platformHeight},
 {x:650,y:platformHeight-40},
