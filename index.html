@@ -2,16 +2,15 @@
 <html>
 <head>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Pollito & Pengui Adventure</title>
+<title>Pollito & Pengui</title>
 
 <style>
-body{margin:0;overflow:hidden;background:#87CEEB;font-family:sans-serif;}
+body{margin:0;overflow:hidden;background:#87CEEB;}
 canvas{display:block;}
 </style>
 </head>
 
 <body>
-
 <canvas id="game"></canvas>
 
 <script>
@@ -24,17 +23,12 @@ canvas.height=window.innerHeight;
 
 let gravity=0.6;
 let cameraX=0;
-
-let gameState="title";
-
-let worldWidth=4500;
-let ground=canvas.height-80;
-
 let score=0;
-let coins=0;
+let step=0;
+let gameState="title";
+let gameWon=false;
 
-let moveLeft=false;
-let moveRight=false;
+let worldWidth=2200;
 
 let audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 
@@ -51,16 +45,30 @@ osc.type="square";
 
 osc.start();
 
-gain.gain.setValueAtTime(0.15,audioCtx.currentTime);
+gain.gain.setValueAtTime(0.2,audioCtx.currentTime);
 gain.gain.exponentialRampToValueAtTime(0.001,audioCtx.currentTime+dur);
 
 osc.stop(audioCtx.currentTime+dur);
 
 }
 
-/* ---------- MUSIC ---------- */
+let clouds=[
+{x:100,y:100},
+{x:400,y:140},
+{x:700,y:90},
+{x:1100,y:130}
+];
 
-let melody=[659,659,0,659,0,523,659,0,784,0,392,0,523,0,392,0,330,0,440,0];
+let player={
+x:200,
+y:300,
+vx:0,
+vy:0,
+facing:1
+};
+
+let ground=canvas.height-80;
+let platformHeight=canvas.height/2;
 let noteIndex=0;
 
 function playMusic(){
