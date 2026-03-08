@@ -2,8 +2,7 @@
 <html>
 <head>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Pollito & Pengui</title>
-
+<title>Pollito & Pengui Adventure</title>
 <style>
 body{margin:0;overflow:hidden;background:#87CEEB;}
 canvas{display:block;}
@@ -21,68 +20,36 @@ const ctx=canvas.getContext("2d");
 canvas.width=window.innerWidth;
 canvas.height=window.innerHeight;
 
-let gravity=0.6;
-let cameraX=0;
-let score=0;
-let step=0;
-let gameState="title";
-let gameWon=false;
+/* ---------- BASIC VARIABLES ---------- */
 
-let worldWidth=4200;
+let gravity=0.6
+let cameraX=0
+let score=0
+let step=0
+let gameState="title"
+let worldWidth=5000
 
-let audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+/* ---------- AUDIO ---------- */
+
+let audioCtx = new (window.AudioContext || window.webkitAudioContext)()
 
 function playTone(freq,dur){
 
-let osc = audioCtx.createOscillator();
-let gain = audioCtx.createGain();
+let osc=audioCtx.createOscillator()
+let gain=audioCtx.createGain()
 
-osc.connect(gain);
-gain.connect(audioCtx.destination);
+osc.connect(gain)
+gain.connect(audioCtx.destination)
 
-osc.frequency.value=freq;
-osc.type="square";
+osc.frequency.value=freq
+osc.type="square"
 
-osc.start();
+osc.start()
 
-gain.gain.setValueAtTime(0.2,audioCtx.currentTime);
-gain.gain.exponentialRampToValueAtTime(0.001,audioCtx.currentTime+dur);
+gain.gain.setValueAtTime(0.2,audioCtx.currentTime)
+gain.gain.exponentialRampToValueAtTime(0.001,audioCtx.currentTime+dur)
 
-osc.stop(audioCtx.currentTime+dur);
-
-}
-
-let clouds=[
-{x:100,y:100},
-{x:400,y:140},
-{x:700,y:90},
-{x:1100,y:130}
-];
-
-let player={
-x:200,
-y:300,
-vx:0,
-vy:0,
-facing:1
-};
-
-let ground=canvas.height-80;
-let platformHeight=canvas.height/2;
-let noteIndex=0;
-
-function playMusic(){
-
-setInterval(()=>{
-
-let note=melody[noteIndex];
-
-if(note!==0) playTone(note,0.15);
-
-noteIndex++;
-if(noteIndex>=melody.length) noteIndex=0;
-
-},180);
+osc.stop(audioCtx.currentTime+dur)
 
 }
 
@@ -90,159 +57,130 @@ if(noteIndex>=melody.length) noteIndex=0;
 
 let player={
 x:200,
-y:200,
+y:300,
 vx:0,
 vy:0,
-size:1
-};
+facing:1,
+speed:5,
+star:false
+}
 
-/* ---------- WORLD OBJECTS ---------- */
+let jumping=false
+let footprints=[]
 
-let hearts=[];
-let enemies=[];
-let mushrooms=[];
-let blocks=[];
-let platforms=[];
+/* ---------- WORLD ---------- */
+
+let ground=canvas.height-80
+
+let platforms=[
+{x:400,y:300,type:"normal"},
+{x:800,y:260,type:"normal"},
+{x:1200,y:300,type:"ice"},
+{x:1600,y:280,type:"normal"},
+{x:2000,y:250,type:"normal"}
+]
+
+let mysteryBlocks=[
+{x:900,y:200,hit:false}
+]
+
+let hearts=[]
+let greenHearts=[]
+
+let penguin={x:2300,y:ground-40,react:false}
+let jeep={x:0,y:ground-20,active:false}
+
+let houseX=4200
+
+let tinyChicks=[]
 
 /* ---------- RESET ---------- */
 
 function resetGame(){
 
-score=0;
-coins=0;
+score=0
+cameraX=0
+player.x=200
+player.y=300
+player.vx=0
+player.vy=0
+player.star=false
 
-player.x=200;
-player.y=200;
-player.size=1;
+hearts=[]
+for(let i=0;i<10;i++){
+hearts.push({x:450+i*200,y:260,collected:false})
+}
 
-cameraX=0;
-
-hearts=[];
-enemies=[];
-mushrooms=[];
-blocks=[];
-platforms=[];
-
-/* hearts */
-
+greenHearts=[]
 for(let i=0;i<20;i++){
-
-hearts.push({
-x:400+(i*200),
-y:ground-120,
-collected:false
-});
-
-}
-
-/* platforms */
-
-for(let i=0;i<12;i++){
-
-platforms.push({
-x:500+(i*300),
-y:ground-150+(Math.sin(i)*50)
-});
-
-}
-
-/* coin blocks */
-
-for(let i=0;i<10;i++){
-
-blocks.push({
-x:600+(i*350),
-y:ground-200,
-used:false
-});
-
-}
-
-/* enemies */
-
-for(let i=0;i<10;i++){
-
-enemies.push({
-x:900+(i*350),
-y:ground-40,
-dir:1
-});
-
+greenHearts.push({x:2500+i*120,y:260,collected:false})
 }
 
 }
 
-resetGame();
+resetGame()
 
-/* ---------- DRAW ---------- */
+/* ---------- DRAW FUNCTIONS ---------- */
 
 function drawChick(x,y){
 
-ctx.fillStyle="yellow";
-ctx.beginPath();
-ctx.arc(x,y,20*player.size,0,Math.PI*2);
-ctx.fill();
+ctx.fillStyle=player.star?"gold":"yellow"
 
-ctx.fillStyle="black";
-ctx.beginPath();
-ctx.arc(x+5,y-5,3,0,Math.PI*2);
-ctx.fill();
+ctx.beginPath()
+ctx.ellipse(x+20,y+32,18,22,0,0,Math.PI*2)
+ctx.fill()
 
-ctx.fillStyle="orange";
-ctx.beginPath();
-ctx.moveTo(x+20,y);
-ctx.lineTo(x+32,y+4);
-ctx.lineTo(x+20,y+8);
-ctx.fill();
+ctx.beginPath()
+ctx.arc(x+20,y+12,14,0,Math.PI*2)
+ctx.fill()
+
+ctx.fillStyle="orange"
+
+ctx.beginPath()
+ctx.moveTo(x+32,y+12)
+ctx.lineTo(x+46,y+16)
+ctx.lineTo(x+32,y+20)
+ctx.fill()
+
+ctx.fillStyle="black"
+ctx.beginPath()
+ctx.arc(x+24,y+10,3,0,Math.PI*2)
+ctx.fill()
+
+let foot=Math.sin(step)*4
+
+ctx.fillStyle="orange"
+ctx.beginPath()
+ctx.arc(x+12,y+52+foot,4,0,Math.PI*2)
+ctx.arc(x+28,y+52-foot,4,0,Math.PI*2)
+ctx.fill()
 
 }
 
 function drawPenguin(x,y){
 
-ctx.fillStyle="black";
-ctx.beginPath();
-ctx.arc(x,y,22,0,Math.PI*2);
-ctx.fill();
+ctx.fillStyle="black"
+ctx.beginPath()
+ctx.ellipse(x+20,y+34,20,26,0,0,Math.PI*2)
+ctx.fill()
 
-ctx.fillStyle="white";
-ctx.beginPath();
-ctx.arc(x,y+4,14,0,Math.PI*2);
-ctx.fill();
+ctx.fillStyle="white"
+ctx.beginPath()
+ctx.ellipse(x+20,y+36,12,16,0,0,Math.PI*2)
+ctx.fill()
 
-}
+ctx.fillStyle="black"
+ctx.beginPath()
+ctx.arc(x+20,y+12,14,0,Math.PI*2)
+ctx.fill()
 
-function drawHeart(x,y){
-
-ctx.fillStyle="red";
-
-ctx.beginPath();
-ctx.moveTo(x,y);
-ctx.bezierCurveTo(x-10,y-10,x-20,y+10,x,y+20);
-ctx.bezierCurveTo(x+20,y+10,x+10,y-10,x,y);
-ctx.fill();
-
-}
-
-function drawEnemy(x,y){
-
-ctx.fillStyle="#663300";
-ctx.fillRect(x-15,y-20,30,20);
-
-}
-
-function drawCoin(x,y){
-
-ctx.fillStyle="gold";
-ctx.beginPath();
-ctx.arc(x,y,8,0,Math.PI*2);
-ctx.fill();
-
-}
-
-function drawBlock(x,y){
-
-ctx.fillStyle="#d68b2a";
-ctx.fillRect(x-20,y-20,40,40);
+ctx.fillStyle="orange"
+ctx.beginPath()
+ctx.moveTo(x+20,y+14)
+ctx.lineTo(x+28,y+18)
+ctx.lineTo(x+20,y+22)
+ctx.lineTo(x+12,y+18)
+ctx.fill()
 
 }
 
@@ -250,131 +188,144 @@ ctx.fillRect(x-20,y-20,40,40);
 
 function update(){
 
-player.vy+=gravity;
-
-player.x+=player.vx;
-player.y+=player.vy;
-
-player.vx*=0.85;
-
-if(player.y>ground-20){
-
-player.y=ground-20;
-player.vy=0;
-
+if(player.vx!==0){
+step+=0.3
+footprints.push({x:player.x+20,life:60})
+if(Math.floor(step*10)%8===0) playTone(600,0.05)
 }
+
+footprints.forEach(f=>f.life--)
+footprints=footprints.filter(f=>f.life>0)
+
+player.vy+=gravity
+player.x+=player.vx
+player.y+=player.vy
+player.vx*=0.8
+
+if(player.y>ground-40){
+player.y=ground-40
+player.vy=0
+}
+
+if(jumping) player.vy-=0.3
+
+if(player.x<0) player.x=0
+if(player.x>worldWidth) player.x=worldWidth
+
+/* platform collision */
 
 platforms.forEach(p=>{
-
-if(player.x>p.x-60 &&
-player.x<p.x+60 &&
-player.y>p.y-40 &&
-player.y<p.y &&
+if(player.x+40>p.x &&
+player.x<p.x+120 &&
+player.y+40>p.y &&
+player.y+40<p.y+20 &&
 player.vy>=0){
 
-player.y=p.y-40;
-player.vy=0;
+player.y=p.y-40
+player.vy=0
 
+if(p.type==="ice"){
+player.vx*=1.2
 }
 
-});
+}
+})
 
 /* hearts */
 
 hearts.forEach(h=>{
+let dx=player.x-h.x
+let dy=player.y-h.y
+let d=Math.sqrt(dx*dx+dy*dy)
 
-if(!h.collected){
-
-let dx=player.x-h.x;
-let dy=player.y-h.y;
-
-if(Math.sqrt(dx*dx+dy*dy)<30){
-
-h.collected=true;
-score++;
-
-playTone(900,0.2);
-
+if(d<35 && !h.collected){
+h.collected=true
+score++
+playTone(900,0.1)
 }
+})
 
-}
+/* mystery block */
 
-});
-
-/* enemies */
-
-enemies.forEach(e=>{
-
-e.x+=e.dir*1.5;
-
-if(Math.random()<0.01) e.dir*=-1;
-
-let dx=player.x-e.x;
-let dy=player.y-e.y;
-
-if(Math.abs(dx)<20 && Math.abs(dy)<20){
-
-player.x-=dx*2;
-
-}
-
-});
-
-/* blocks */
-
-blocks.forEach(b=>{
-
-if(!b.used &&
+mysteryBlocks.forEach(b=>{
+if(!b.hit &&
 player.x>b.x-20 &&
-player.x<b.x+20 &&
-player.y<b.y &&
-player.y>b.y-60 &&
+player.x<b.x+40 &&
+player.y<b.y+20 &&
 player.vy<0){
 
-b.used=true;
+b.hit=true
+hearts.push({x:b.x,y:b.y-40,collected:false})
 
-mushrooms.push({
-x:b.x,
-y:b.y-40,
-vx:2
-});
+}
+})
 
-playTone(700,0.2);
+/* penguin reaction */
+
+if(Math.abs(player.x-penguin.x)<200){
+penguin.react=true
+penguin.y=ground-50+Math.sin(Date.now()*0.01)*5
+}
+
+/* jeep trigger */
+
+if(score>=10 && player.x>penguin.x){
+
+jeep.active=true
+jeep.x=player.x
+gameState="jeep"
 
 }
 
-});
+/* jeep mode */
 
-/* mushrooms */
+if(gameState==="jeep"){
 
-mushrooms.forEach(m=>{
+jeep.x+=4
+cameraX=jeep.x-canvas.width/3
 
-m.x+=m.vx;
+greenHearts.forEach(h=>{
+if(!h.collected && Math.abs(jeep.x-h.x)<40){
+h.collected=true
+playTone(700,0.1)
+}
+})
 
-let dx=player.x-m.x;
-let dy=player.y-m.y;
+if(jeep.x>houseX){
+gameState="home"
 
-if(Math.sqrt(dx*dx+dy*dy)<25){
-
-player.size=1.5;
-m.collected=true;
-
-playTone(400,0.3);
+for(let i=0;i<12;i++){
+tinyChicks.push({
+x:houseX,
+y:ground-20,
+vx:(Math.random()*6)-3,
+vy:-10
+})
+}
 
 }
 
-});
+}
 
-mushrooms=mushrooms.filter(m=>!m.collected);
+/* tiny chicks */
+
+tinyChicks.forEach(c=>{
+c.vy+=gravity
+c.x+=c.vx
+c.y+=c.vy
+
+if(c.y>ground-20){
+c.y=ground-20
+c.vy=-8
+}
+})
 
 /* camera */
 
-let target=player.x-canvas.width/2;
-
-if(target<0) target=0;
-if(target>worldWidth-canvas.width) target=worldWidth-canvas.width;
-
-cameraX+= (target-cameraX)*0.1;
+let target=player.x-canvas.width/2
+if(target<0) target=0
+if(target>worldWidth-canvas.width) target=worldWidth-canvas.width
+cameraX+=(target-cameraX)*0.1
 
 }
 
@@ -382,970 +333,142 @@ cameraX+= (target-cameraX)*0.1;
 
 function draw(){
 
-ctx.clearRect(0,0,canvas.width,canvas.height);
+ctx.clearRect(0,0,canvas.width,canvas.height)
 
 /* ground */
 
-ctx.fillStyle="#2f8f2f";
-ctx.fillRect(0,ground,canvas.width,80);
+ctx.fillStyle="#228B22"
+ctx.fillRect(0,ground,canvas.width,80)
+
+/* footprints */
+
+footprints.forEach(f=>{
+ctx.globalAlpha=f.life/60
+ctx.fillStyle="black"
+ctx.beginPath()
+ctx.ellipse(f.x-cameraX,ground,6,3,0,0,Math.PI*2)
+ctx.fill()
+ctx.globalAlpha=1
+})
 
 /* platforms */
 
-ctx.fillStyle="#8B4513";
-
+ctx.fillStyle="#8B4513"
 platforms.forEach(p=>{
-ctx.fillRect(p.x-cameraX-60,p.y,120,20);
-});
+ctx.fillRect(p.x-cameraX,p.y,120,20)
+})
+
+/* mystery blocks */
+
+ctx.fillStyle="gold"
+mysteryBlocks.forEach(b=>{
+ctx.fillRect(b.x-cameraX,b.y,40,40)
+})
 
 /* hearts */
 
+ctx.fillStyle="red"
 hearts.forEach(h=>{
-if(!h.collected)
-drawHeart(h.x-cameraX,h.y);
-});
+if(!h.collected){
+ctx.beginPath()
+ctx.arc(h.x-cameraX,h.y,8,0,Math.PI*2)
+ctx.fill()
+}
+})
 
-/* enemies */
+/* green hearts jeep section */
 
-enemies.forEach(e=>{
-drawEnemy(e.x-cameraX,e.y);
-});
+ctx.fillStyle="lime"
+greenHearts.forEach(h=>{
+if(!h.collected){
+ctx.beginPath()
+ctx.arc(h.x-cameraX,h.y,8,0,Math.PI*2)
+ctx.fill()
+}
+})
 
-/* mushrooms */
+/* penguin */
 
-mushrooms.forEach(m=>{
-ctx.fillStyle="red";
-ctx.fillRect(m.x-cameraX-10,m.y-10,20,20);
-});
+drawPenguin(penguin.x-cameraX,penguin.y)
 
-/* blocks */
+/* house */
 
-blocks.forEach(b=>{
-drawBlock(b.x-cameraX,b.y);
-});
+ctx.fillStyle="brown"
+ctx.fillRect(houseX-cameraX,ground-80,120,80)
+ctx.fillStyle="red"
+ctx.fillRect(houseX-cameraX,ground-110,120,40)
+
+/* tiny chicks */
+
+tinyChicks.forEach(c=>{
+drawChick(c.x-cameraX,c.y)
+})
 
 /* player */
 
-drawChick(player.x-cameraX,player.y);
+drawChick(player.x-cameraX,player.y)
 
-/* penguin + jeep ending */
+/* HUD */
 
-if(score>=20){
-
-let px=worldWidth-200;
-
-drawPenguin(px-cameraX,ground-40);
-
-if(Math.abs(player.x-px)<60){
-
-gameState="ending";
+ctx.fillStyle="white"
+ctx.font="20px sans-serif"
+ctx.fillText("Hearts: "+score,20,40)
 
 }
 
-}
-
-ctx.fillStyle="white";
-ctx.fillText("Hearts "+score+"/20",20,30);
-
-}
-
-/* ---------- ENDING ---------- */
-
-function drawEnding(){
-
-ctx.fillStyle="#87CEEB";
-ctx.fillRect(0,0,canvas.width,canvas.height);
-
-ctx.fillStyle="orange";
-ctx.fillRect(canvas.width/2-100,canvas.height/2,200,60);
-
-ctx.fillStyle="yellow";
-ctx.beginPath();
-ctx.arc(canvas.width/2-40,canvas.height/2-20,20,0,Math.PI*2);
-ctx.fill();
-
-ctx.fillStyle="black";
-ctx.beginPath();
-ctx.arc(canvas.width/2+40,canvas.height/2-20,20,0,Math.PI*2);
-ctx.fill();
-
-ctx.fillStyle="white";
-ctx.textAlign="center";
-ctx.font="30px sans-serif";
-ctx.fillText("Pollito ❤️ Pengui Ride Away!",canvas.width/2,200);
-
-}
-
-/* ---------- LOOP ---------- */
+/* ---------- GAME LOOP ---------- */
 
 function loop(){
 
-if(gameState==="play"){
-update();
-draw();
-}
-
-if(gameState==="ending"){
-drawEnding();
-}
+if(gameState==="play") update()
+if(gameState==="jeep") update()
+draw()
 
 if(gameState==="title"){
 
-ctx.fillStyle="#87CEEB";
-ctx.fillRect(0,0,canvas.width,canvas.height);
+ctx.fillStyle="white"
+ctx.textAlign="center"
 
-ctx.fillStyle="white";
-ctx.textAlign="center";
+ctx.font="40px sans-serif"
+ctx.fillText("Pollito ❤️ Pengui",canvas.width/2,200)
 
-ctx.font="40px sans-serif";
-ctx.fillText("Pollito ❤️ Pengui",canvas.width/2,200);
-
-ctx.font="24px sans-serif";
-ctx.fillText("Collect 20 hearts!",canvas.width/2,260);
-
-ctx.fillText("Tap to Start",canvas.width/2,340);
+ctx.font="22px sans-serif"
+ctx.fillText("Tap to start",canvas.width/2,260)
 
 }
 
-requestAnimationFrame(loop);
+requestAnimationFrame(loop)
 
 }
 
-loop();
+loop()
 
-/* ---------- TOUCH ---------- */
+/* ---------- CONTROLS ---------- */
 
 canvas.addEventListener("touchstart",e=>{
 
 if(gameState==="title"){
-
-gameState="play";
-playMusic();
-return;
-
+gameState="play"
+return
 }
 
-let x=e.touches[0].clientX;
-let y=e.touches[0].clientY;
+let x=e.touches[0].clientX
+let y=e.touches[0].clientY
 
 if(y<canvas.height/2){
-
-player.vy=-12;
-
+jumping=true
+player.vy=-8
 }else{
-
-if(x<canvas.width/2) moveLeft=true;
-else moveRight=true;
-
-player.vx = x<canvas.width/2 ? -6 : 6;
-
+if(x<canvas.width/2) player.vx=-player.speed
+else player.vx=player.speed
 }
 
-});
+})
 
 canvas.addEventListener("touchend",()=>{
-
-moveLeft=false;
-moveRight=false;
-
-});
-
-</script>
-</body>
-</html>
-let platforms=[
-{x:400,y:platformHeight},
-{x:650,y:platformHeight-40},
-{x:900,y:platformHeight+20},
-{x:1200,y:platformHeight-30},
-{x:1500,y:platformHeight}
-];
-
-let hearts=[];
-let heartBurst=[];
-let heartPopups=[];
-
-let penguin={x:2000,y:ground-40};
-let babyPengui=null;
-
-let moveLeft=false;
-let moveRight=false;
-
-function resetGame(){
-
-score=0;
-cameraX=0;
-gameWon=false;
-babyPengui=null;
-heartBurst=[];
-heartPopups=[];
-
-player.x=200;
-player.y=300;
-
-hearts=[];
-
-for(let i=0;i<10;i++){
-hearts.push({
-x:420+(i*180),
-y:platformHeight-30,
-collected:false
-});
-}
-
-}
-
-resetGame();
-
-function drawChick(x,y){
-
-ctx.fillStyle="yellow";
-ctx.beginPath();
-ctx.ellipse(x+20,y+30,18,22,0,0,Math.PI*2);
-ctx.fill();
-
-ctx.beginPath();
-ctx.arc(x+20,y+12,14,0,Math.PI*2);
-ctx.fill();
-
-ctx.fillStyle="#f5d742";
-ctx.beginPath();
-ctx.ellipse(x+20,y+30,10,8,0,0,Math.PI*2);
-ctx.fill();
-
-ctx.fillStyle="orange";
-
-if(player.facing===1){
-ctx.beginPath();
-ctx.moveTo(x+32,y+12);
-ctx.lineTo(x+46,y+16);
-ctx.lineTo(x+32,y+20);
-ctx.fill();
-}else{
-ctx.beginPath();
-ctx.moveTo(x+8,y+12);
-ctx.lineTo(x-6,y+16);
-ctx.lineTo(x+8,y+20);
-ctx.fill();
-}
-
-ctx.fillStyle="black";
-ctx.beginPath();
-ctx.arc(player.facing===1?x+24:x+16,y+10,3,0,Math.PI*2);
-ctx.fill();
-
-let footOffset=Math.sin(step)*4;
-
-ctx.fillStyle="orange";
-ctx.beginPath();
-ctx.arc(x+12,y+52+footOffset,4,0,Math.PI*2);
-ctx.arc(x+28,y+52-footOffset,4,0,Math.PI*2);
-ctx.fill();
-
-}
-
-function drawPenguin(x,y,size=1){
-
-let s=size;
-
-ctx.fillStyle="black";
-ctx.beginPath();
-ctx.ellipse(x+20*s,y+32*s,20*s,26*s,0,0,Math.PI*2);
-ctx.fill();
-
-ctx.fillStyle="white";
-ctx.beginPath();
-ctx.ellipse(x+20*s,y+34*s,12*s,16*s,0,0,Math.PI*2);
-ctx.fill();
-
-ctx.fillStyle="black";
-ctx.beginPath();
-ctx.arc(x+20*s,y+12*s,14*s,0,Math.PI*2);
-ctx.fill();
-
-ctx.fillStyle="white";
-ctx.beginPath();
-ctx.arc(x+24*s,y+10*s,3*s,0,Math.PI*2);
-ctx.fill();
-
-ctx.fillStyle="orange";
-ctx.beginPath();
-ctx.moveTo(x+20*s,y+14*s);
-ctx.lineTo(x+28*s,y+18*s);
-ctx.lineTo(x+20*s,y+22*s);
-ctx.lineTo(x+12*s,y+18*s);
-ctx.fill();
-
-ctx.beginPath();
-ctx.arc(x+12*s,y+58*s,4*s,0,Math.PI*2);
-ctx.arc(x+28*s,y+58*s,4*s,0,Math.PI*2);
-ctx.fill();
-
-}
-
-function drawHeart(x,y){
-
-ctx.fillStyle="red";
-
-ctx.beginPath();
-ctx.moveTo(x,y);
-ctx.bezierCurveTo(x-10,y-10,x-20,y+10,x,y+20);
-ctx.bezierCurveTo(x+20,y+10,x+10,y-10,x,y);
-ctx.fill();
-
-}
-
-function drawCloud(x,y){
-
-ctx.fillStyle="white";
-
-ctx.beginPath();
-ctx.arc(x,y,20,0,Math.PI*2);
-ctx.arc(x+20,y-10,25,0,Math.PI*2);
-ctx.arc(x+40,y,20,0,Math.PI*2);
-ctx.fill();
-
-}
-
-function update(){
-
-clouds.forEach(c=>{c.x+=0.2;});
-
-if(moveLeft){
-player.vx=-5;
-player.facing=-1;
-}
-
-if(moveRight){
-player.vx=5;
-player.facing=1;
-}
-
-if(moveLeft||moveRight){
-step+=0.3;
-
-if(Math.floor(step*10)%8===0){
-playTone(600,0.05);
-}
-
-}
-
-player.vy+=gravity;
-
-player.x+=player.vx;
-player.y+=player.vy;
-
-player.vx*=0.8;
-
-if(player.y+40>ground){
-player.y=ground-40;
-player.vy=0;
-}
-
-if(player.x<0) player.x=0;
-if(player.x>worldWidth) player.x=worldWidth;
-
-platforms.forEach(p=>{
-if(player.x+40>p.x &&
-player.x<p.x+120 &&
-player.y+40>p.y &&
-player.y+40<p.y+20 &&
-player.vy>=0){
-player.y=p.y-40;
-player.vy=0;
-}
-});
-
-hearts.forEach(h=>{
-
-let dx=player.x-h.x;
-let dy=player.y-h.y;
-let dist=Math.sqrt(dx*dx+dy*dy);
-
-if(dist<35 && !h.collected){
-
-h.collected=true;
-score++;
-
-playTone(900,0.15);
-
-heartPopups.push({
-x:h.x,
-y:h.y,
-life:40
-});
-
-}
-
-});
-
-if(score>=10){
-
-let dx=player.x-penguin.x;
-let dy=player.y-penguin.y;
-let dist=Math.sqrt(dx*dx+dy*dy);
-
-if(dist<40 && !gameWon){
-
-gameWon=true;
-
-playTone(1200,0.4);
-
-babyPengui={
-x:penguin.x+40,
-y:penguin.y-20,
-vx:2,
-vy:-10
-};
-
-for(let i=0;i<25;i++){
-heartBurst.push({
-x:penguin.x+20,
-y:penguin.y+20,
-vx:(Math.random()*6)-3,
-vy:(Math.random()*-6),
-life:60
-});
-}
-
-}
-
-}
-
-heartBurst.forEach(h=>{
-h.vy+=0.2;
-h.x+=h.vx;
-h.y+=h.vy;
-h.life--;
-});
-
-heartBurst=heartBurst.filter(h=>h.life>0);
-
-heartPopups.forEach(p=>{
-p.y-=1;
-p.life--;
-});
-
-heartPopups=heartPopups.filter(p=>p.life>0);
-
-if(babyPengui){
-
-babyPengui.vy+=gravity;
-
-babyPengui.x+=babyPengui.vx;
-babyPengui.y+=babyPengui.vy;
-
-if(babyPengui.y>ground-20){
-babyPengui.y=ground-20;
-babyPengui.vy=-10;
-babyPengui.vx=(Math.random()*4)-2;
-}
-
-}
-
-let targetCamera=player.x-canvas.width/2;
-
-if(targetCamera<0) targetCamera=0;
-if(targetCamera>worldWidth-canvas.width) targetCamera=worldWidth-canvas.width;
-
-cameraX += (targetCamera-cameraX)*0.1;
-
-}
-
-function draw(){
-
-ctx.clearRect(0,0,canvas.width,canvas.height);
-
-clouds.forEach(c=>{
-drawCloud(c.x-cameraX*0.3,c.y);
-});
-
-ctx.fillStyle="#228B22";
-ctx.fillRect(0,ground,canvas.width,80);
-
-ctx.fillStyle="#8B4513";
-
-platforms.forEach(p=>{
-ctx.fillRect(p.x-cameraX,p.y,120,20);
-});
-
-hearts.forEach(h=>{
-if(!h.collected){
-drawHeart(h.x-cameraX,h.y);
-}
-});
-
-heartBurst.forEach(h=>{
-drawHeart(h.x-cameraX,h.y);
-});
-
-heartPopups.forEach(p=>{
-ctx.fillStyle="white";
-ctx.fillText("+1",p.x-cameraX,p.y);
-});
-
-if(score>=10){
-drawPenguin(penguin.x-cameraX,penguin.y);
-}
-
-if(babyPengui){
-drawPenguin(babyPengui.x-cameraX,babyPengui.y,0.6);
-}
-
-drawChick(player.x-cameraX,player.y);
-
-ctx.fillStyle="white";
-ctx.font="20px sans-serif";
-ctx.fillText("Hearts: "+score+"/10",20,40);
-
-if(gameWon){
-
-ctx.font="28px sans-serif";
-ctx.textAlign="center";
-ctx.fillText("Yay! Baby Pengui time!",canvas.width/2,80);
-
-ctx.font="20px sans-serif";
-ctx.fillText("Tap screen to play again",canvas.width/2,120);
-
-ctx.textAlign="left";
-
-}
-
-}
-
-function loop(){
-
-if(gameState==="play"){
-update();
-draw();
-}
-
-if(gameState==="title"){
-
-ctx.fillStyle="#87CEEB";
-ctx.fillRect(0,0,canvas.width,canvas.height);
-
-ctx.fillStyle="white";
-ctx.textAlign="center";
-
-ctx.font="40px sans-serif";
-ctx.fillText("Pollito ❤️ Pengui",canvas.width/2,200);
-
-ctx.font="24px sans-serif";
-ctx.fillText("Collect hearts and find Pengui!",canvas.width/2,260);
-
-ctx.fillText("Tap to start",canvas.width/2,340);
-
-}
-
-requestAnimationFrame(loop);
-
-}
-
-loop();
-
-canvas.addEventListener("touchstart",e=>{
-
-if(gameState==="title"){
-gameState="play";
-return;
-}
-
-if(gameWon){
-resetGame();
-return;
-}
-
-let x=e.touches[0].clientX;
-let y=e.touches[0].clientY;
-
-if(y<canvas.height/2){
-player.vy=-12;
-}else{
-if(x<canvas.width/2) moveLeft=true;
-else moveRight=true;
-}
-
-});
-
-canvas.addEventListener("touchend",()=>{
-moveLeft=false;
-moveRight=false;
-});
-
-</script>
-</body>
-</html>hearts.push({
-x:420+(i*180),
-y:platformHeight-30,
-collected:false
-});
-}
-
-}
-
-resetGame();
-
-/* ---------- DRAWING ---------- */
-
-function drawChick(x,y){
-
-ctx.fillStyle="yellow";
-ctx.beginPath();
-ctx.arc(x+20,y+20,20,0,Math.PI*2);
-ctx.fill();
-
-ctx.fillStyle="orange";
-
-if(player.facing===1){
-ctx.beginPath();
-ctx.moveTo(x+40,y+20);
-ctx.lineTo(x+52,y+25);
-ctx.lineTo(x+40,y+30);
-ctx.fill();
-}else{
-ctx.beginPath();
-ctx.moveTo(x,y+20);
-ctx.lineTo(x-12,y+25);
-ctx.lineTo(x,y+30);
-ctx.fill();
-}
-
-ctx.fillStyle="black";
-ctx.beginPath();
-ctx.arc(player.facing===1?x+28:x+12,y+15,3,0,Math.PI*2);
-ctx.fill();
-
-let footOffset=Math.sin(step)*4;
-
-ctx.fillStyle="orange";
-ctx.beginPath();
-ctx.arc(x+12,y+42+footOffset,4,0,Math.PI*2);
-ctx.fill();
-
-ctx.beginPath();
-ctx.arc(x+28,y+42-footOffset,4,0,Math.PI*2);
-ctx.fill();
-
-}
-
-function drawPenguin(x,y,size=1){
-
-let r=20*size;
-
-ctx.fillStyle="black";
-ctx.beginPath();
-ctx.arc(x+r,y+r,r,0,Math.PI*2);
-ctx.fill();
-
-ctx.fillStyle="white";
-ctx.beginPath();
-ctx.arc(x+r,y+r+2,r*0.6,0,Math.PI*2);
-ctx.fill();
-
-ctx.fillStyle="orange";
-ctx.beginPath();
-ctx.moveTo(x+r*2,y+r);
-ctx.lineTo(x+r*2+12*size,y+r+5*size);
-ctx.lineTo(x+r*2,y+r+10*size);
-ctx.fill();
-
-ctx.beginPath();
-ctx.arc(x+r*0.6,y+r*2.1,4*size,0,Math.PI*2);
-ctx.arc(x+r*1.4,y+r*2.1,4*size,0,Math.PI*2);
-ctx.fill();
-
-ctx.fillStyle="black";
-ctx.beginPath();
-ctx.arc(x+r*1.4,y+r*0.75,3*size,0,Math.PI*2);
-ctx.fill();
-
-}
-
-function drawHeart(x,y){
-
-ctx.fillStyle="red";
-
-ctx.beginPath();
-ctx.moveTo(x,y);
-ctx.bezierCurveTo(x-10,y-10,x-20,y+10,x,y+20);
-ctx.bezierCurveTo(x+20,y+10,x+10,y-10,x,y);
-ctx.fill();
-
-}
-
-function drawCloud(x,y){
-
-ctx.fillStyle="white";
-
-ctx.beginPath();
-ctx.arc(x,y,20,0,Math.PI*2);
-ctx.arc(x+20,y-10,25,0,Math.PI*2);
-ctx.arc(x+40,y,20,0,Math.PI*2);
-ctx.fill();
-
-}
-
-/* ---------- UPDATE ---------- */
-
-function update(){
-
-clouds.forEach(c=>{
-c.x+=0.2;
-if(c.x-cameraX>canvas.width+100) c.x=cameraX-100;
-});
-
-if(moveLeft){
-player.vx=-5;
-player.facing=-1;
-}
-
-if(moveRight){
-player.vx=5;
-player.facing=1;
-}
-
-if(moveLeft||moveRight){
-step+=0.3;
-}
-
-player.vy+=gravity;
-
-player.x+=player.vx;
-player.y+=player.vy;
-
-player.vx*=0.8;
-
-if(player.y+40>ground){
-player.y=ground-40;
-player.vy=0;
-}
-
-platforms.forEach(p=>{
-if(player.x+40>p.x &&
-player.x<p.x+120 &&
-player.y+40>p.y &&
-player.y+40<p.y+20 &&
-player.vy>=0){
-player.y=p.y-40;
-player.vy=0;
-}
-});
-
-hearts.forEach(h=>{
-
-let dx=player.x-h.x;
-let dy=player.y-h.y;
-let dist=Math.sqrt(dx*dx+dy*dy);
-
-if(dist<35 && !h.collected){
-
-h.collected=true;
-score++;
-
-heartPopups.push({
-x:h.x,
-y:h.y,
-life:40
-});
-
-}
-
-});
-
-if(score>=10){
-
-let dx=player.x-penguin.x;
-let dy=player.y-penguin.y;
-let dist=Math.sqrt(dx*dx+dy*dy);
-
-if(dist<40 && !gameWon){
-
-gameWon=true;
-
-babyPengui={
-x:penguin.x+40,
-y:penguin.y-20,
-vx:2,
-vy:-10
-};
-
-for(let i=0;i<25;i++){
-heartBurst.push({
-x:penguin.x+20,
-y:penguin.y+20,
-vx:(Math.random()*6)-3,
-vy:(Math.random()*-6),
-life:60
-});
-}
-
-}
-
-}
-
-heartBurst.forEach(h=>{
-h.vy+=0.2;
-h.x+=h.vx;
-h.y+=h.vy;
-h.life--;
-});
-
-heartBurst=heartBurst.filter(h=>h.life>0);
-
-heartPopups.forEach(p=>{
-p.y-=1;
-p.life--;
-});
-
-heartPopups=heartPopups.filter(p=>p.life>0);
-
-if(babyPengui){
-
-babyPengui.vy+=gravity;
-
-babyPengui.x+=babyPengui.vx;
-babyPengui.y+=babyPengui.vy;
-
-if(babyPengui.y>ground-20){
-babyPengui.y=ground-20;
-babyPengui.vy=-10;
-babyPengui.vx=(Math.random()*4)-2;
-}
-
-}
-
-if(player.x-cameraX>canvas.width*0.6){
-cameraX=player.x-canvas.width*0.6;
-}
-
-}
-
-/* ---------- DRAW ---------- */
-
-function draw(){
-
-ctx.clearRect(0,0,canvas.width,canvas.height);
-
-clouds.forEach(c=>{
-drawCloud(c.x-cameraX*0.3,c.y);
-});
-
-ctx.fillStyle="#228B22";
-ctx.fillRect(0,ground,canvas.width,80);
-
-ctx.fillStyle="#8B4513";
-
-platforms.forEach(p=>{
-ctx.fillRect(p.x-cameraX,p.y,120,20);
-});
-
-hearts.forEach(h=>{
-if(!h.collected){
-drawHeart(h.x-cameraX,h.y);
-}
-});
-
-heartBurst.forEach(h=>{
-drawHeart(h.x-cameraX,h.y);
-});
-
-heartPopups.forEach(p=>{
-ctx.fillStyle="white";
-ctx.fillText("+1",p.x-cameraX,p.y);
-});
-
-if(score>=10){
-drawPenguin(penguin.x-cameraX,penguin.y);
-}
-
-if(babyPengui){
-drawPenguin(babyPengui.x-cameraX,babyPengui.y,0.6);
-}
-
-drawChick(player.x-cameraX,player.y);
-
-ctx.fillStyle="white";
-ctx.font="20px sans-serif";
-ctx.fillText("Hearts: "+score+"/10",20,40);
-
-if(gameWon){
-
-ctx.font="28px sans-serif";
-ctx.textAlign="center";
-ctx.fillText("Yay! Baby Pengui time!",canvas.width/2,80);
-
-ctx.font="20px sans-serif";
-ctx.fillText("Tap screen to play again",canvas.width/2,120);
-
-ctx.textAlign="left";
-
-}
-
-}
-
-/* ---------- LOOP ---------- */
-
-function loop(){
-
-if(gameState==="play"){
-update();
-draw();
-}
-
-if(gameState==="title"){
-
-ctx.fillStyle="#87CEEB";
-ctx.fillRect(0,0,canvas.width,canvas.height);
-
-ctx.fillStyle="white";
-ctx.textAlign="center";
-
-ctx.font="40px sans-serif";
-ctx.fillText("Pollito ❤️ Pengui",canvas.width/2,200);
-
-ctx.font="24px sans-serif";
-ctx.fillText("Collect hearts and find Pengui!",canvas.width/2,260);
-
-ctx.fillText("Tap to start",canvas.width/2,340);
-
-}
-
-requestAnimationFrame(loop);
-
-}
-
-loop();
-
-/* ---------- TOUCH ---------- */
-
-canvas.addEventListener("touchstart",e=>{
-
-if(gameState==="title"){
-gameState="play";
-return;
-}
-
-if(gameWon){
-resetGame();
-return;
-}
-
-let x=e.touches[0].clientX;
-let y=e.touches[0].clientY;
-
-if(y<canvas.height/2){
-player.vy=-12;
-}else{
-if(x<canvas.width/2) moveLeft=true;
-else moveRight=true;
-}
-
-});
-
-canvas.addEventListener("touchend",()=>{
-moveLeft=false;
-moveRight=false;
-});
+jumping=false
+player.vx=0
+})
 
 </script>
 </body>
